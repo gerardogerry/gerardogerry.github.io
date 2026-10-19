@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse # <-- AGREGADO
+from fastapi.responses import FileResponse
 from app.routers import vehiculos, demo
 from app.services.websocket_manager import manager
 from app.services.vehiculo_service import VehiculoService
