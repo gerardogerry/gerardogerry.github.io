@@ -1,24 +1,15 @@
-from datetime import datetime
 from typing import List, Dict, Any, Optional
 import mysql.connector
-from mysql.connector import Error
-import os
 
 def get_db_connection():
-    """Establece la conexión a la base de datos Amazon RDS usando variables de entorno."""
     return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
+        host="instancia-rds-iot.cfyzylsylqy4.us-east-1.rds.amazonaws.com",
+        user=os.getenv("DB_USER", "admin"),
+        password=os.getenv("DB_PASSWORD", "Admin1234#"),
         database=os.getenv("DB_NAME", "vehiculo_iot"),
         port=int(os.getenv("DB_PORT", 3306))
     )
-
 def format_row(row: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convierte objetos datetime o timedelta devueltos por MySQL a strings 
-    para evitar fallos de serialización JSON (HTTP 500) en FastAPI.
-    """
     if not row:
         return row
     formatted = {}
@@ -46,6 +37,9 @@ class VehiculoService:
             cursor.close()
             conn.close()
 
+    # Alias para resolver el AttributeError
+    obtener_vehiculos = listar_vehiculos
+
     @staticmethod
     def obtener_vehiculo_por_id(vehiculo_id: int) -> Optional[Dict[str, Any]]:
         conn = get_db_connection()
@@ -60,6 +54,8 @@ class VehiculoService:
         finally:
             cursor.close()
             conn.close()
+
+    obtener_vehiculo = obtener_vehiculo_por_id
 
     @staticmethod
     def listar_comandos_vehiculo(vehiculo_id: int = 1) -> List[Dict[str, Any]]:
@@ -76,6 +72,8 @@ class VehiculoService:
             cursor.close()
             conn.close()
 
+    obtener_comandos = listar_comandos_vehiculo
+
     @staticmethod
     def obtener_ultimo_estado(vehiculo_id: int) -> Optional[Dict[str, Any]]:
         conn = get_db_connection()
@@ -91,6 +89,8 @@ class VehiculoService:
             cursor.close()
             conn.close()
 
+    obtener_estado = obtener_ultimo_estado
+
     @staticmethod
     def obtener_historial_reciente(vehiculo_id: int) -> List[Dict[str, Any]]:
         conn = get_db_connection()
@@ -101,26 +101,21 @@ class VehiculoService:
             for result in cursor.stored_results():
                 for row in result.fetchall():
                     historial.append(format_row(row))
-            # Retorna como máximo los 10 registros más recientes
             return historial[:10]
         finally:
             cursor.close()
             conn.close()
+
+    obtener_historial = obtener_historial_reciente
 
     @staticmethod
     def registrar_movimiento(vehiculo_id: int, comando_id: int, origen: str = "MANUAL") -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         try:
-            # 1. Actualiza el estado actual en RDS
             cursor.callproc("sp_actualizar_estado", (vehiculo_id, comando_id, True))
-            
-            # 2. Registra el movimiento en la tabla de historial
             cursor.callproc("sp_registrar_historial", (vehiculo_id, comando_id, origen))
-            
             conn.commit()
-            
-            # 3. Recupera el estado actualizado para responder la petición
             return VehiculoService.obtener_ultimo_estado(vehiculo_id)
         except Exception as e:
             conn.rollback()
@@ -158,3 +153,4 @@ class VehiculoService:
         finally:
             cursor.close()
             conn.close()
+
