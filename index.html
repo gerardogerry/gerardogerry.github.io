@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control IoT - Vehículos AWS</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --accent-hover: #0284c7;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --border-color: #334155;
+            --success-color: #22c55e;
+            --error-color: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            max-width: 800px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-bg);
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            border: 1px solid var(--border-color);
+            margin-top: 1rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+            box-shadow: 0 0 10px var(--success-color);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-color);
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+            color: #ffffff;
+        }
+
+        .response-box {
+            background: #090d16;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #38bdf8;
+            white-space: pre-wrap;
+        }
+
+        footer {
+            margin-top: auto;
+            padding-top: 3rem;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Panel de Control IoT</h1>
+        <p>Monitoreo y comunicación REST API con FastAPI y Amazon RDS</p>
+        <div class="status-bar">
+            <span class="dot"></span>
+            <span>Servidor EC2 Activo: <code>http://50.19.210.179:8000</code></span>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- Tarjeta 1: Vehículos -->
+        <div class="card">
+            <h2>🚗 Vehículos Registrados</h2>
+            <p style="color: var(--text-sub); font-size: 0.9rem;">Consulta la lista completa de vehículos desde RDS.</p>
+            <button class="btn" onclick="obtenerVehiculos()">Cargar Vehículos</button>
+            <div id="res-vehiculos" class="response-box">Presiona el botón para consultar...</div>
+        </div>
+
+        <!-- Tarjeta 2: Documentación API -->
+        <div class="card">
+            <h2>📚 Documentación Swagger</h2>
+            <p style="color: var(--text-sub); font-size: 0.9rem;">Explora y prueba las 21 rutas de la API interactivamente.</p>
+            <a href="http://50.19.210.179:8000/docs" target="_blank" style="text-decoration: none;">
+                <button class="btn">Abrir Swagger UI ↗</button>
+            </a>
+        </div>
+
+        <!-- Tarjeta 3: Telemetría / Estado -->
+        <div class="card">
+            <h2>⚡ Estado del Vehículo #1</h2>
+            <p style="color: var(--text-sub); font-size: 0.9rem;">Consulta el último movimiento y estado de marcha.</p>
+            <button class="btn" onclick="obtenerEstado()">Consultar Estado</button>
+            <div id="res-estado" class="response-box">Presiona el botón para consultar...</div>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Desarrollado para el Examen Tema 2: Arquitectura y Tecnologías de IoT</p>
+    </footer>
+
+    <script>
+        const API_BASE = "http://50.19.210.179:8000/api/v1";
+
+        async function obtenerVehiculos() {
+            const box = document.getElementById('res-vehiculos');
+            box.textContent = "Cargando...";
+            try {
+                const res = await fetch(`${API_BASE}/vehiculos`);
+                const data = await res.json();
+                box.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                box.textContent = "Error al conectar con la API: " + err.message;
+            }
+        }
+
+        async function obtenerEstado() {
+            const box = document.getElementById('res-estado');
+            box.textContent = "Cargando...";
+            try {
+                const res = await fetch(`${API_BASE}/vehiculos/1/estado`);
+                const data = await res.json();
+                box.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                box.textContent = "Error al conectar con la API: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
